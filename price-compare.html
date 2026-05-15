@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#2563eb">
+    <link rel="manifest" href="manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="PriceComp">
+    <link rel="apple-touch-icon" href="icon-192.svg">
+    <title>Price Comparator</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        /* Mobile-friendly adjustments */
+        body {
+            -webkit-tap-highlight-color: transparent;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+        .header-gradient {
+            background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+        }
+    </style>
+</head>
+<body class="bg-slate-100">
+    <div class="max-w-md mx-auto min-h-screen bg-slate-50 flex flex-col text-slate-900 shadow-xl">
+        <header class="p-4 header-gradient text-white shadow-md sticky top-0 z-10">
+            <h1 class="text-xl font-bold flex items-center gap-2">
+                <i data-lucide="calculator" class="w-6 h-6"></i> Price Comparator
+            </h1>
+        </header>
+        <main id="app" class="flex-1 p-4 pb-24">
+            <div id="summary-container" class="mb-6 hidden sticky top-[68px] z-10 bg-slate-50 py-2">
+                <div class="bg-green-100 border-l-4 border-green-500 p-4 rounded-r-xl shadow-sm">
+                    <div class="flex items-start gap-3">
+                        <div class="bg-green-500 text-white p-1 rounded-full mt-0.5">
+                            <i data-lucide="check" class="w-4 h-4"></i>
+                        </div>
+                        <div>
+                            <p id="best-items-text" class="font-bold text-green-800 text-lg leading-tight"></p>
+                            <p id="savings-text" class="text-green-700 text-sm mt-1"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="items-container" class="space-y-4">
+                <!-- Items will be rendered here -->
+            </div>
+            
+            <div id="empty-state" class="hidden flex flex-col items-center justify-center py-20 text-slate-400">
+                <i data-lucide="shopping-basket" class="w-16 h-16 mb-4 opacity-20"></i>
+                <p>No items added yet. Click the + button to start.</p>
+            </div>
+        </main>
+
+        <!-- Floating Action Button -->
+        <button onclick="addItem()" class="fixed bottom-6 right-6 w-14 h-14 bg-blue-600 text-white rounded-full shadow-lg flex items-center justify-center active:scale-95 transition-transform z-20">
+            <i data-lucide="plus"></i>
+        </button>
+    </div>
+
+    <script>
+        // State management
+        let items = [
+            { id: Date.now().toString() + '-1', size: '', price: '', name: 'A' },
+            { id: (Date.now() + 1).toString() + '-2', size: '', price: '', name: 'B' }
+        ];
+
+        const container = document.getElementById('items-container');
+        const emptyState = document.getElementById('empty-state');
+        const summaryContainer = document.getElementById('summary-container');
+        const bestItemsText = document.getElementById('best-items-text');
+        const savingsText = document.getElementById('savings-text');
+
+        function calculate() {
+            const validItems = items.filter(item => {
+                const s = parseFloat(item.size);
+                const p = parseFloat(item.price);
+                return !isNaN(s) && s > 0 && !isNaN(p) && p >= 0;
+            }).map(item => ({
+                ...item,
+                size: parseFloat(item.size),
+                price: parseFloat(item.price),
+                unitPrice: parseFloat(item.price) / parseFloat(item.size)
+            }));
+
+            if (validItems.length < 1) {
+                summaryContainer.classList.add('hidden');
+                return { validItems: [], bestItems: [], others: [] };
+            }
+
+            const minUnitPrice = Math.min(...validItems.map(i => i.unitPrice));
+            const bestItems = validItems.filter(i => Math.abs(i.unitPrice - minUnitPrice) < 0.000001);
+            const others = validItems.filter(i => i.unitPrice > minUnitPrice + 0.000001);
+
+            // Sort others by worst value first
+            others.sort((a, b) => b.unitPrice - a.unitPrice);
+
+            if (validItems.length > 1) {
+                summaryContainer.classList.remove('hidden');
+                if (others.length > 0) {
+                    const bestNames = bestItems.map(i => i.name).join(', ');
+                    bestItemsText.innerText = `${bestNames} คุ้มค่าที่สุด!`;
+
+                    // Calculate savings for all other items
+                    const best = bestItems[0];
+                    const savingsList = others.map(other => {
+                        const savingsBaht = other.price - (best.unitPrice * other.size);
+                        const savingsPercent = (savingsBaht / other.price) * 100;
+                        return `${other.name} ${Math.round(savingsPercent)}%`;
+                    });
+
+                    savingsText.innerText = `(ถูกกว่า ${savingsList.join(', ')})`;
+                } else {
+                    // All items are equally priced
+                    const allNames = bestItems.map(i => i.name).join(', ');
+                    bestItemsText.innerText = `${allNames} ราคาคุ้มค่าเท่ากัน!`;
+                    savingsText.innerText = `ไม่ว่าจะเลือกชิ้นไหนก็ประหยัดเท่ากัน`;
+                }
+            } else {
+                summaryContainer.classList.add('hidden');
+            }
+
+            return { validItems, bestItems, others };
+        }
+
+        function updateUI() {
+            const { validItems, bestItems, others } = calculate();
+
+            if (items.length === 0) {
+                container.innerHTML = '';
+                emptyState.classList.remove('hidden');
+                summaryContainer.classList.add('hidden');
+                return;
+            }
+
+            emptyState.classList.add('hidden');
+
+            // Update individual cards border without full re-render
+            items.forEach(item => {
+                const card = document.getElementById(`card-${item.id}`);
+                if (card) {
+                    const isBest = bestItems.find(bi => bi.id === item.id);
+                    if (isBest && validItems.length > 1) {
+                        card.className = 'bg-white p-4 rounded-xl shadow-md border-2 border-green-500 relative transition-all duration-300';
+                    } else {
+                        card.className = 'bg-white p-4 rounded-xl shadow-sm border border-slate-200 relative transition-all duration-300';
+                    }
+                }
+            });
+        }
+
+        function render() {
+            if (items.length === 0) {
+                container.innerHTML = '';
+                emptyState.classList.remove('hidden');
+                summaryContainer.classList.add('hidden');
+            } else {
+                emptyState.classList.add('hidden');
+                container.innerHTML = items.map((item, index) => {
+                    // Use a temporary class, updateUI will set the correct one
+                    const cardClass = 'bg-white p-4 rounded-xl shadow-sm border border-slate-200 relative transition-all duration-300';
+                    
+                    return `
+                    <div id="card-${item.id}" class="${cardClass}">
+                        <div class="flex justify-between items-center mb-3">
+                            <input type="text" 
+                                   id="name-${item.id}"
+                                   value="${item.name}" 
+                                   oninput="updateItem('${item.id}', 'name', this.value)"
+                                   onfocus="this.select()"
+                                   class="font-semibold text-slate-700 bg-transparent border-none focus:outline-none w-2/3"
+                                   placeholder="Item Name">
+                            <button onclick="removeItem('${item.id}')" class="text-slate-400 hover:text-red-500 transition-colors p-1">
+                                <i data-lucide="trash-2" class="w-5 h-5"></i>
+                            </button>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="space-y-1">
+                                <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">Size/Weight</label>
+                                <div class="relative">
+                                    <input type="number" 
+                                           id="size-${item.id}"
+                                           value="${item.size}" 
+                                           inputmode="decimal"
+                                           oninput="updateItem('${item.id}', 'size', this.value)"
+                                           onfocus="this.select()"
+                                           placeholder="e.g. 500" 
+                                           class="w-full bg-slate-50 border border-slate-200 rounded-lg py-2 px-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all text-lg font-medium">
+                                    <span class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">g/ml</span>
+                                </div>
+                            </div>
+                            <div class="space-y-1">
+                                <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">Price</label>
+                                <div class="relative">
+                                    <input type="number" 
+                                           id="price-${item.id}"
+                                           value="${item.price}" 
+                                           inputmode="decimal"
+                                           oninput="updateItem('${item.id}', 'price', this.value)"
+                                           onfocus="this.select()"
+                                           placeholder="e.g. 99" 
+                                           class="w-full bg-slate-50 border border-slate-200 rounded-lg py-2 px-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all text-lg font-medium">
+                                    <span class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">฿</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `}).join('');
+            }
+            // Update summary and border colors
+            updateUI();
+            // Re-initialize icons for new elements
+            lucide.createIcons();
+        }
+
+        function addItem() {
+            const nextLetter = String.fromCharCode(65 + items.length); // A, B, C...
+            const newItem = {
+                id: Date.now().toString(),
+                size: '',
+                price: '',
+                name: nextLetter
+            };
+            items.push(newItem);
+            render();
+        }
+
+        function removeItem(id) {
+            items = items.filter(item => item.id !== id);
+            render();
+        }
+
+        function updateItem(id, field, value) {
+            const item = items.find(item => item.id === id);
+            if (item) {
+                item[field] = value;
+                // Surgical update: recalculate and update summary/borders
+                // without re-rendering the inputs themselves
+                updateUI();
+            }
+        }
+
+        // Initial render
+        render();
+
+        // Register Service Worker
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(reg => console.log('SW registered', reg))
+                    .catch(err => console.error('SW registration failed', err));
+            });
+        }
+    </script>
+</body>
+</html>

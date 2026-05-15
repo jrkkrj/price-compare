@@ -1,273 +1,262 @@
- 1 <!DOCTYPE html>
-     2 <html lang="en">
-     3 <head>
-     4     <meta charset="UTF-8">
-     5     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-     6     <meta name="theme-color" content="#2563eb">
-     7     <link rel="manifest" href="manifest.json">
-     8     <meta name="apple-mobile-web-app-capable" content="yes">
-     9     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    10     <meta name="apple-mobile-web-app-title" content="PriceComp">
-    11     <link rel="apple-touch-icon" href="icon-192.svg">
-    12     <title>Price Comparator</title>
-    13     <!-- Tailwind CSS CDN -->
-    14     <script src="https://cdn.tailwindcss.com"></script>
-    15     <!-- Lucide Icons -->
-    16     <script src="https://unpkg.com/lucide@latest"></script>
-    17     <style>
-    18         /* Mobile-friendly adjustments */
-    19         body {
-    20             -webkit-tap-highlight-color: transparent;
-    21             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    22         }
-    23         .header-gradient {
-    24             background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
-    25         }
-    26     </style>
-    27 </head>
-    28 <body class="bg-slate-100">
-    29     <div class="max-w-md mx-auto min-h-screen bg-slate-50 flex flex-col text-slate-900 shadow-xl">
-    30         <header class="p-4 header-gradient text-white shadow-md sticky top-0 z-10">
-    31             <h1 class="text-xl font-bold flex items-center gap-2">
-    32                 <i data-lucide="calculator" class="w-6 h-6"></i> Price Comparator
-    33             </h1>
-    34         </header>
-    35         <main id="app" class="flex-1 p-4 pb-24">
-    36             <div id="summary-container" class="mb-6 hidden sticky top-[68px] z-10 bg-slate-50 py-2">
-    37                 <div class="bg-green-100 border-l-4 border-green-500 p-4 rounded-r-xl shadow-sm">
-    38                     <div class="flex items-start gap-3">
-    39                         <div class="bg-green-500 text-white p-1 rounded-full mt-0.5">
-    40                             <i data-lucide="check" class="w-4 h-4"></i>
-    41                         </div>
-    42                         <div>
-    43                             <p id="best-items-text" class="font-bold text-green-800 text-lg leading-tight"></p>
-    44                             <p id="savings-text" class="text-green-700 text-sm mt-1"></p>
-    45                         </div>
-    46                     </div>
-    47                 </div>
-    48             </div>
-    49
-    50             <div id="items-container" class="space-y-4">
-    51                 <!-- Items will be rendered here -->
-    52             </div>
-    53
-    54             <div id="empty-state" class="hidden flex flex-col items-center justify-center py-20 text-slate-400">
-    55                 <i data-lucide="shopping-basket" class="w-16 h-16 mb-4 opacity-20"></i>
-    56                 <p>No items added yet. Click the + button to start.</p>
-    57             </div>
-    58         </main>
-    59
-    60         <!-- Floating Action Button -->
-    61         <button onclick="addItem()" class="fixed bottom-6 right-6 w-14 h-14 bg-blue-600 text-white rounded-full
-       shadow-lg flex items-center justify-center active:scale-95 transition-transform z-20">
-    62             <i data-lucide="plus"></i>
-    63         </button>
-    64     </div>
-    65
-    66     <script>
-    67         // State management
-    68         let items = [
-    69             { id: Date.now().toString() + '-1', size: '', price: '', name: 'A' },
-    70             { id: (Date.now() + 1).toString() + '-2', size: '', price: '', name: 'B' }
-    71         ];
-    72
-    73         const container = document.getElementById('items-container');
-    74         const emptyState = document.getElementById('empty-state');
-    75         const summaryContainer = document.getElementById('summary-container');
-    76         const bestItemsText = document.getElementById('best-items-text');
-    77         const savingsText = document.getElementById('savings-text');
-    78
-    79         function calculate() {
-    80             const validItems = items.filter(item => {
-    81                 const s = parseFloat(item.size);
-    82                 const p = parseFloat(item.price);
-    83                 return !isNaN(s) && s > 0 && !isNaN(p) && p >= 0;
-    84             }).map(item => ({
-    85                 ...item,
-    86                 size: parseFloat(item.size),
-    87                 price: parseFloat(item.price),
-    88                 unitPrice: parseFloat(item.price) / parseFloat(item.size)
-    89             }));
-    90
-    91             if (validItems.length < 1) {
-    92                 summaryContainer.classList.add('hidden');
-    93                 return { validItems: [], bestItems: [], others: [] };
-    94             }
-    95
-    96             const minUnitPrice = Math.min(...validItems.map(i => i.unitPrice));
-    97             const bestItems = validItems.filter(i => Math.abs(i.unitPrice - minUnitPrice) < 0.000001);
-    98             const others = validItems.filter(i => i.unitPrice > minUnitPrice + 0.000001);
-    99
-   100             // Sort others by worst value first
-   101             others.sort((a, b) => b.unitPrice - a.unitPrice);
-   102
-   103             if (validItems.length > 1) {
-   104                 summaryContainer.classList.remove('hidden');
-   105                 if (others.length > 0) {
-   106                     const bestNames = bestItems.map(i => i.name).join(', ');
-   107                     bestItemsText.innerText = `${bestNames} คุ้มค่าที่สุด!`;
-   108
-   109                     // Calculate savings for all other items
-   110                     const best = bestItems[0];
-   111                     const savingsList = others.map(other => {
-   112                         const savingsBaht = other.price - (best.unitPrice * other.size);
-   113                         const savingsPercent = (savingsBaht / other.price) * 100;
-   114                         return `${other.name} ${Math.round(savingsPercent)}%`;
-   115                     });
-   116
-   117                     savingsText.innerText = `(ถูกกว่า ${savingsList.join(', ')})`;
-   118                 } else {
-   119                     // All items are equally priced
-   120                     const allNames = bestItems.map(i => i.name).join(', ');
-   121                     bestItemsText.innerText = `${allNames} ราคาคุ้มค่าเท่ากัน!`;
-   122                     savingsText.innerText = `ไม่ว่าจะเลือกชิ้นไหนก็ประหยัดเท่ากัน`;
-   123                 }
-   124             } else {
-   125                 summaryContainer.classList.add('hidden');
-   126             }
-   127
-   128             return { validItems, bestItems, others };
-   129         }
-   130
-   131         function updateUI() {
-   132             const { validItems, bestItems, others } = calculate();
-   133
-   134             if (items.length === 0) {
-   135                 container.innerHTML = '';
-   136                 emptyState.classList.remove('hidden');
-   137                 summaryContainer.classList.add('hidden');
-   138                 return;
-   139             }
-   140
-   141             emptyState.classList.add('hidden');
-   142
-   143             // Update individual cards border without full re-render
-   144             items.forEach(item => {
-   145                 const card = document.getElementById(`card-${item.id}`);
-   146                 if (card) {
-   147                     const isBest = bestItems.find(bi => bi.id === item.id);
-   148                     if (isBest && validItems.length > 1) {
-   149                         card.className = 'bg-white p-4 rounded-xl shadow-md border-2 border-green-500 relative
-       transition-all duration-300';
-   150                     } else {
-   151                         card.className = 'bg-white p-4 rounded-xl shadow-sm border border-slate-200 relative
-       transition-all duration-300';
-   152                     }
-   153                 }
-   154             });
-   155         }
-   156
-   157         function render() {
-   158             if (items.length === 0) {
-   159                 container.innerHTML = '';
-   160                 emptyState.classList.remove('hidden');
-   161                 summaryContainer.classList.add('hidden');
-   162             } else {
-   163                 emptyState.classList.add('hidden');
-   164                 container.innerHTML = items.map((item, index) => {
-   165                     // Use a temporary class, updateUI will set the correct one
-   166                     const cardClass = 'bg-white p-4 rounded-xl shadow-sm border border-slate-200 relative
-       transition-all duration-300';
-   167
-   168                     return `
-   169                     <div id="card-${item.id}" class="${cardClass}">
-   170                         <div class="flex justify-between items-center mb-3">
-   171                             <input type="text"
-   172                                    id="name-${item.id}"
-   173                                    value="${item.name}"
-   174                                    oninput="updateItem('${item.id}', 'name', this.value)"
-   175                                    onfocus="this.select()"
-   176                                    class="font-semibold text-slate-700 bg-transparent border-none
-       focus:outline-none w-2/3"
-   177                                    placeholder="Item Name">
-   178                             <button onclick="removeItem('${item.id}')" class="text-slate-400 hover:text-red-500
-       transition-colors p-1">
-   179                                 <i data-lucide="trash-2" class="w-5 h-5"></i>
-   180                             </button>
-   181                         </div>
-   182                         <div class="grid grid-cols-2 gap-4">
-   183                             <div class="space-y-1">
-   184                                 <label class="text-xs font-bold text-slate-500 uppercase
-       tracking-wider">Size/Weight</label>
-   185                                 <div class="relative">
-   186                                     <input type="number"
-   187                                            id="size-${item.id}"
-   188                                            value="${item.size}"
-   189                                            inputmode="decimal"
-   190                                            oninput="updateItem('${item.id}', 'size', this.value)"
-   191                                            onfocus="this.select()"
-   192                                            placeholder="e.g. 500"
-   193                                            class="w-full bg-slate-50 border border-slate-200 rounded-lg py-2 px-3
-       focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all text-lg font-medium">
-   194                                     <span class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400
-       text-sm">g/ml</span>
-   195                                 </div>
-   196                             </div>
-   197                             <div class="space-y-1">
-   198                                 <label class="text-xs font-bold text-slate-500 uppercase
-       tracking-wider">Price</label>
-   199                                 <div class="relative">
-   200                                     <input type="number"
-   201                                            id="price-${item.id}"
-   202                                            value="${item.price}"
-   203                                            inputmode="decimal"
-   204                                            oninput="updateItem('${item.id}', 'price', this.value)"
-   205                                            onfocus="this.select()"
-   206                                            placeholder="e.g. 99"
-   207                                            class="w-full bg-slate-50 border border-slate-200 rounded-lg py-2 px-3
-       focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all text-lg font-medium">
-   208                                     <span class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400
-       text-sm">฿</span>
-   209                                 </div>
-   210                             </div>
-   211                         </div>
-   212                     </div>
-   213                 `}).join('');
-   214             }
-   215             // Update summary and border colors
-   216             updateUI();
-   217             // Re-initialize icons for new elements
-   218             lucide.createIcons();
-   219         }
-   220
-   221         function addItem() {
-   222             const nextLetter = String.fromCharCode(65 + items.length); // A, B, C...
-   223             const newItem = {
-   224                 id: Date.now().toString(),
-   225                 size: '',
-   226                 price: '',
-   227                 name: nextLetter
-   228             };
-   229             items.push(newItem);
-   230             render();
-   231         }
-   232
-   233         function removeItem(id) {
-   234             items = items.filter(item => item.id !== id);
-   235             render();
-   236         }
-   237
-   238         function updateItem(id, field, value) {
-   239             const item = items.find(item => item.id === id);
-   240             if (item) {
-   241                 item[field] = value;
-   242                 // Surgical update: recalculate and update summary/borders
-   243                 // without re-rendering the inputs themselves
-   244                 updateUI();
-   245             }
-   246         }
-   247
-   248         // Initial render
-   249         render();
-   250
-   251         // Register Service Worker
-   252         if ('serviceWorker' in navigator) {
-   253             window.addEventListener('load', () => {
-   254                 navigator.serviceWorker.register('./sw.js')
-   255                     .then(reg => console.log('SW registered', reg))
-   256                     .catch(err => console.error('SW registration failed', err));
-   257             });
-   258         }
-   259     </script>
-   260 </body>
-   261 </html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#2563eb">
+    <link rel="manifest" href="manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="PriceComp">
+    <link rel="apple-touch-icon" href="icon-192.svg">
+    <title>Price Comparator</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        /* Mobile-friendly adjustments */
+        body {
+            -webkit-tap-highlight-color: transparent;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+        .header-gradient {
+            background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+        }
+    </style>
+</head>
+<body class="bg-slate-100">
+    <div class="max-w-md mx-auto min-h-screen bg-slate-50 flex flex-col text-slate-900 shadow-xl">
+        <header class="p-4 header-gradient text-white shadow-md sticky top-0 z-10">
+            <h1 class="text-xl font-bold flex items-center gap-2">
+                <i data-lucide="calculator" class="w-6 h-6"></i> Price Comparator
+            </h1>
+        </header>
+        <main id="app" class="flex-1 p-4 pb-24">
+            <div id="summary-container" class="mb-6 hidden sticky top-[68px] z-10 bg-slate-50 py-2">
+                <div class="bg-green-100 border-l-4 border-green-500 p-4 rounded-r-xl shadow-sm">
+                    <div class="flex items-start gap-3">
+                        <div class="bg-green-500 text-white p-1 rounded-full mt-0.5">
+                            <i data-lucide="check" class="w-4 h-4"></i>
+                        </div>
+                        <div>
+                            <p id="best-items-text" class="font-bold text-green-800 text-lg leading-tight"></p>
+                            <p id="savings-text" class="text-green-700 text-sm mt-1"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="items-container" class="space-y-4">
+                <!-- Items will be rendered here -->
+            </div>
+
+            <div id="empty-state" class="hidden flex flex-col items-center justify-center py-20 text-slate-400">
+                <i data-lucide="shopping-basket" class="w-16 h-16 mb-4 opacity-20"></i>
+                <p>No items added yet. Click the + button to start.</p>
+            </div>
+        </main>
+
+        <!-- Floating Action Button -->
+        <button onclick="addItem()" class="fixed bottom-6 right-6 w-14 h-14 bg-blue-600 text-white rounded-full
+      shadow-lg flex items-center justify-center active:scale-95 transition-transform z-20">
+            <i data-lucide="plus"></i>
+        </button>
+    </div>
+
+    <script>
+        // State management
+        let items = [
+            { id: Date.now().toString() + '-1', size: '', price: '', name: 'A' },
+            { id: (Date.now() + 1).toString() + '-2', size: '', price: '', name: 'B' }
+        ];
+
+        const container = document.getElementById('items-container');
+        const emptyState = document.getElementById('empty-state');
+        const summaryContainer = document.getElementById('summary-container');
+        const bestItemsText = document.getElementById('best-items-text');
+        const savingsText = document.getElementById('savings-text');
+
+        function calculate() {
+            const validItems = items.filter(item => {
+                const s = parseFloat(item.size);
+                const p = parseFloat(item.price);
+                return !isNaN(s) && s > 0 && !isNaN(p) && p >= 0;
+            }).map(item => ({
+                ...item,
+                size: parseFloat(item.size),
+                price: parseFloat(item.price),
+                unitPrice: parseFloat(item.price) / parseFloat(item.size)
+            }));
+
+            if (validItems.length < 1) {
+                summaryContainer.classList.add('hidden');
+                return { validItems: [], bestItems: [], others: [] };
+            }
+
+            const minUnitPrice = Math.min(...validItems.map(i => i.unitPrice));
+            const bestItems = validItems.filter(i => Math.abs(i.unitPrice - minUnitPrice) < 0.000001);
+            const others = validItems.filter(i => i.unitPrice > minUnitPrice + 0.000001);
+
+            // Sort others by worst value first
+            others.sort((a, b) => b.unitPrice - a.unitPrice);
+
+            if (validItems.length > 1) {
+                summaryContainer.classList.remove('hidden');
+                if (others.length > 0) {
+                    const bestNames = bestItems.map(i => i.name).join(', ');
+                    bestItemsText.innerText = `${bestNames} คุ้มค่าที่สุด!`;
+
+                    // Calculate savings for all other items
+                    const best = bestItems[0];
+                    const savingsList = others.map(other => {
+                        const savingsBaht = other.price - (best.unitPrice * other.size);
+                        const savingsPercent = (savingsBaht / other.price) * 100;
+                        return `${other.name} ${Math.round(savingsPercent)}%`;
+                    });
+
+                    savingsText.innerText = `(ถูกกว่า ${savingsList.join(', ')})`;
+                } else {
+                    // All items are equally priced
+                    const allNames = bestItems.map(i => i.name).join(', ');
+                    bestItemsText.innerText = `${allNames} ราคาคุ้มค่าเท่ากัน!`;
+                    savingsText.innerText = `ไม่ว่าจะเลือกชิ้นไหนก็ประหยัดเท่ากัน`;
+                }
+            } else {
+                summaryContainer.classList.add('hidden');
+            }
+
+            return { validItems, bestItems, others };
+        }
+
+        function updateUI() {
+            const { validItems, bestItems, others } = calculate();
+
+            if (items.length === 0) {
+                container.innerHTML = '';
+                emptyState.classList.remove('hidden');
+                summaryContainer.classList.add('hidden');
+                return;
+            }
+
+            emptyState.classList.add('hidden');
+
+            // Update individual cards border without full re-render
+            items.forEach(item => {
+                const card = document.getElementById(`card-${item.id}`);
+                if (card) {
+                    const isBest = bestItems.find(bi => bi.id === item.id);
+                    if (isBest && validItems.length > 1) {
+                        card.className = 'bg-white p-4 rounded-xl shadow-md border-2 border-green-500 relative transition-all duration-300';
+                    } else {
+                        card.className = 'bg-white p-4 rounded-xl shadow-sm border border-slate-200 relative transition-all duration-300';
+                    }
+                }
+            });
+        }
+
+        function render() {
+            if (items.length === 0) {
+                container.innerHTML = '';
+                emptyState.classList.remove('hidden');
+                summaryContainer.classList.add('hidden');
+            } else {
+                emptyState.classList.add('hidden');
+                container.innerHTML = items.map((item, index) => {
+                    // Use a temporary class, updateUI will set the correct one
+                    const cardClass = 'bg-white p-4 rounded-xl shadow-sm border border-slate-200 relative transition-all duration-300';
+
+                    return `
+                    <div id="card-${item.id}" class="${cardClass}">
+                        <div class="flex justify-between items-center mb-3">
+                            <input type="text"
+                                   id="name-${item.id}"
+                                   value="${item.name}"
+                                   oninput="updateItem('${item.id}', 'name', this.value)"
+                                   onfocus="this.select()"
+                                   class="font-semibold text-slate-700 bg-transparent border-none focus:outline-none w-2/3"
+                                   placeholder="Item Name">
+                            <button onclick="removeItem('${item.id}')" class="text-slate-400 hover:text-red-500 transition-colors p-1">
+                                <i data-lucide="trash-2" class="w-5 h-5"></i>
+                            </button>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="space-y-1">
+                                <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">Size/Weight</label>
+                                <div class="relative">
+                                    <input type="number"
+                                           id="size-${item.id}"
+                                           value="${item.size}"
+                                           inputmode="decimal"
+                                           oninput="updateItem('${item.id}', 'size', this.value)"
+                                           onfocus="this.select()"
+                                           placeholder="e.g. 500"
+                                           class="w-full bg-slate-50 border border-slate-200 rounded-lg py-2 px-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all text-lg font-medium">
+                                    <span class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">g/ml</span>
+                                </div>
+                            </div>
+                            <div class="space-y-1">
+                                <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">Price</label>
+                                <div class="relative">
+                                    <input type="number"
+                                           id="price-${item.id}"
+                                           value="${item.price}"
+                                           inputmode="decimal"
+                                           oninput="updateItem('${item.id}', 'price', this.value)"
+                                           onfocus="this.select()"
+                                           placeholder="e.g. 99"
+                                           class="w-full bg-slate-50 border border-slate-200 rounded-lg py-2 px-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all text-lg font-medium">
+                                    <span class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">฿</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `}).join('');
+            }
+            // Update summary and border colors
+            updateUI();
+            // Re-initialize icons for new elements
+            lucide.createIcons();
+        }
+
+        function addItem() {
+            const nextLetter = String.fromCharCode(65 + items.length); // A, B, C...
+            const newItem = {
+                id: Date.now().toString(),
+                size: '',
+                price: '',
+                name: nextLetter
+            };
+            items.push(newItem);
+            render();
+        }
+
+        function removeItem(id) {
+            items = items.filter(item => item.id !== id);
+            render();
+        }
+
+        function updateItem(id, field, value) {
+            const item = items.find(item => item.id === id);
+            if (item) {
+                item[field] = value;
+                // Surgical update: recalculate and update summary/borders
+                // without re-rendering the inputs themselves
+                updateUI();
+            }
+        }
+
+        // Initial render
+        render();
+
+        // Register Service Worker
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(reg => console.log('SW registered', reg))
+                    .catch(err => console.error('SW registration failed', err));
+            });
+        }
+    </script>
+</body>
+</html>

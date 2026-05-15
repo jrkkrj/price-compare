@@ -98,7 +98,6 @@
             const bestItems = validItems.filter(i => Math.abs(i.unitPrice - minUnitPrice) < 0.000001);
             const others = validItems.filter(i => i.unitPrice > minUnitPrice + 0.000001);
 
-            // Sort others by worst value first
             others.sort((a, b) => b.unitPrice - a.unitPrice);
 
             if (validItems.length > 1) {
@@ -107,17 +106,17 @@
                     const bestNames = bestItems.map(i => i.name).join(', ');
                     bestItemsText.innerText = `${bestNames} คุ้มค่าที่สุด!`;
 
-                    // Calculate savings for all other items
                     const best = bestItems[0];
                     const savingsList = others.map(other => {
                         const savingsBaht = other.price - (best.unitPrice * other.size);
                         const savingsPercent = (savingsBaht / other.price) * 100;
-                        return `${other.name} ${Math.round(savingsPercent)}%`;
+                        const formattedBaht = Math.round(savingsBaht).toLocaleString();
+                        const formattedPercent = Math.round(savingsPercent);
+                        return `${other.name} ${formattedPercent}% (${formattedBaht} ฿)`;
                     });
 
                     savingsText.innerText = `(ถูกกว่า ${savingsList.join(', ')})`;
                 } else {
-                    // All items are equally priced
                     const allNames = bestItems.map(i => i.name).join(', ');
                     bestItemsText.innerText = `${allNames} ราคาคุ้มค่าเท่ากัน!`;
                     savingsText.innerText = `ไม่ว่าจะเลือกชิ้นไหนก็ประหยัดเท่ากัน`;
@@ -141,7 +140,6 @@
 
             emptyState.classList.add('hidden');
 
-            // Update individual cards border without full re-render
             items.forEach(item => {
                 const card = document.getElementById(`card-${item.id}`);
                 if (card) {
@@ -163,7 +161,6 @@
             } else {
                 emptyState.classList.add('hidden');
                 container.innerHTML = items.map((item, index) => {
-                    // Use a temporary class, updateUI will set the correct one
                     const cardClass = 'bg-white p-4 rounded-xl shadow-sm border border-slate-200 relative transition-all duration-300';
 
                     return `
@@ -213,14 +210,12 @@
                     </div>
                 `}).join('');
             }
-            // Update summary and border colors
             updateUI();
-            // Re-initialize icons for new elements
             lucide.createIcons();
         }
 
         function addItem() {
-            const nextLetter = String.fromCharCode(65 + items.length); // A, B, C...
+            const nextLetter = String.fromCharCode(65 + items.length);
             const newItem = {
                 id: Date.now().toString(),
                 size: '',
@@ -240,16 +235,12 @@
             const item = items.find(item => item.id === id);
             if (item) {
                 item[field] = value;
-                // Surgical update: recalculate and update summary/borders
-                // without re-rendering the inputs themselves
                 updateUI();
             }
         }
 
-        // Initial render
         render();
 
-        // Register Service Worker
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('./sw.js')
